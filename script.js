@@ -5,6 +5,14 @@ const ctx = canvas.getContext("2d");
 const spec = document.getElementById("spectrum");
 const sctx = spec ? spec.getContext("2d") : null;
 
+canvas.width = 520;
+canvas.height = 220;
+
+if (spec) {
+    spec.width = 520;
+    spec.height = 120;
+}
+
 let running = false;
 let x = 0;
 
@@ -12,7 +20,26 @@ let signal = [];
 let bpm = 0;
 let lastPeak = Date.now();
 
-// 📊 ECG SIGNAL
+// 🔊 BEEP SYSTEM (NO FILE NEEDED)
+function beep() {
+    let ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+
+    let osc = ctxAudio.createOscillator();
+    let gain = ctxAudio.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctxAudio.destination);
+
+    osc.frequency.value = 800;
+    osc.type = "sine";
+
+    gain.gain.setValueAtTime(0.1, ctxAudio.currentTime);
+
+    osc.start();
+    osc.stop(ctxAudio.currentTime + 0.15);
+}
+
+// 🫀 ECG SIGNAL
 function ecg(i) {
 
     let noise = (Math.random() - 0.5) * 8;
@@ -43,7 +70,7 @@ function ecg(i) {
     return value + noise;
 }
 
-// 📊 RISK INDEX (clinical logic)
+// 📊 RISK INDEX
 function riskIndex(bpm) {
 
     if (!bpm) return 0;
@@ -68,16 +95,6 @@ function alarmState(bpm) {
     return "NORMAL";
 }
 
-// 🔊 SOUND SYSTEM
-function playAlarm(state) {
-
-    let audio = document.getElementById("alarmSound");
-
-    if (state === "CRITICAL") {
-        audio.play().catch(() => {});
-    }
-}
-
 // 🎨 GRID
 function grid() {
 
@@ -95,6 +112,24 @@ function grid() {
         ctx.moveTo(0, j);
         ctx.lineTo(canvas.width, j);
         ctx.stroke();
+    }
+}
+
+// 📊 SPECTRUM (FIXED LOWER GRAPH)
+function drawSpectrum() {
+
+    if (!sctx) return;
+
+    sctx.fillStyle = "black";
+    sctx.fillRect(0, 0, spec.width, spec.height);
+
+    sctx.fillStyle = "#00e6ff";
+
+    let data = signal.slice(-50);
+
+    for (let i = 0; i < data.length; i++) {
+        let h = Math.abs(data[i]) * 1.5;
+        sctx.fillRect(i * 10, spec.height - h, 6, h);
     }
 }
 
@@ -133,23 +168,23 @@ function draw() {
 
     // 📊 UI UPDATE
     document.getElementById("bpm").innerText = "BPM: " + (bpm || "--");
-
     document.getElementById("risk").innerText = "Risk Index: " + risk;
 
     let alarmEl = document.getElementById("alarm");
     alarmEl.innerText = "Alarm: " + alarm;
 
-    // 🎨 COLOR ALERT (NO UI CHANGE, ONLY TEXT COLOR)
+    // 🎨 COLOR ALERT
     if (alarm === "CRITICAL") {
         alarmEl.style.color = "red";
+        beep(); // 🔊 SOUND HERE
     } else if (alarm === "WARNING") {
         alarmEl.style.color = "orange";
     } else {
         alarmEl.style.color = "#00ff88";
     }
 
-    // 🔊 SOUND TRIGGER
-    playAlarm(alarm);
+    // 📊 DRAW LOWER GRAPH
+    drawSpectrum();
 
     requestAnimationFrame(draw);
 }
@@ -158,4 +193,10 @@ function draw() {
 function toggle() {
     running = !running;
     if (running) draw();
+}
+
+// 👤 OPTIONAL (if button exists)
+function switchPatient() {
+    signal = [];
+    bpm = 0;
 }
