@@ -1,4 +1,3 @@
-
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -20,7 +19,7 @@ let signal = [];
 let bpm = 0;
 let lastPeak = Date.now();
 
-// 🔊 SOUND ENGINE (SOFT + CHEERFUL)
+// 🔊 CALM SOUND ENGINE
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let alarmInterval = null;
 
@@ -28,8 +27,8 @@ let currentAlarm = "NORMAL";
 let lastStableAlarm = "NORMAL";
 let changeTimer = 0;
 
-// 🎵 SOFT SOUND
-function playTone(freq, duration = 0.08) {
+// 🎵 VERY SOFT HEART-WARMING SOUND
+function playTone(freq, duration = 0.12) {
 
     let osc = audioCtx.createOscillator();
     let gain = audioCtx.createGain();
@@ -38,41 +37,37 @@ function playTone(freq, duration = 0.08) {
     gain.connect(audioCtx.destination);
 
     osc.frequency.value = freq;
-    osc.type = "triangle";
+    osc.type = "sine"; // smooth sound
 
     gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.08, audioCtx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.05, audioCtx.currentTime + 0.05);
     gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
 
     osc.start();
     osc.stop(audioCtx.currentTime + duration);
 }
 
-// 🔁 CONTINUOUS DOUBLE BEEP
+// 🔁 VERY CALM LOOP
 function startAlarmLoop(state) {
 
     if (alarmInterval) clearInterval(alarmInterval);
 
     currentAlarm = state;
 
-    let speed, freq;
+    let speed = 1500; // slow always
+    let freq = 500;   // soft tone
 
-    if (state === "CRITICAL") {
-        speed = 600;
-        freq = 950;
+    if (state === "WARNING") {
+        speed = 1200;
+        freq = 550;
     } 
-    else if (state === "WARNING") {
+    else if (state === "CRITICAL") {
         speed = 900;
-        freq = 750;
-    } 
-    else {
-        speed = 1400;
         freq = 600;
     }
 
     alarmInterval = setInterval(() => {
         playTone(freq);
-        setTimeout(() => playTone(freq * 1.1), 120);
     }, speed);
 }
 
@@ -203,10 +198,10 @@ function draw() {
     let risk = riskIndex(bpm);
     let rawAlarm = alarmState(bpm);
 
-    // 🧠 STABILITY FIX
+    // 🧠 STABILITY
     if (rawAlarm !== lastStableAlarm) {
         changeTimer++;
-        if (changeTimer > 15) {
+        if (changeTimer > 20) {
             lastStableAlarm = rawAlarm;
             changeTimer = 0;
         }
@@ -223,7 +218,6 @@ function draw() {
     let alarmEl = document.getElementById("alarm");
     alarmEl.innerText = "Alarm: " + alarm;
 
-    // 🎨 COLOR ALERT
     if (alarm === "CRITICAL") {
         alarmEl.style.color = "red";
     } 
@@ -239,7 +233,6 @@ function draw() {
         startAlarmLoop(alarm);
     }
 
-    // 📊 DRAW SPECTRUM
     drawSpectrum();
 
     requestAnimationFrame(draw);
