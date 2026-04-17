@@ -1,4 +1,3 @@
-
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -20,23 +19,51 @@ let signal = [];
 let bpm = 0;
 let lastPeak = Date.now();
 
-// 🔊 BEEP SYSTEM (NO FILE NEEDED)
-function beep() {
-    let ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+// 🔊 ICU SOUND ENGINE (CONTINUOUS + DYNAMIC)
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let alarmInterval = null;
+let currentAlarm = "NORMAL";
 
-    let osc = ctxAudio.createOscillator();
-    let gain = ctxAudio.createGain();
+function playTone(freq, duration = 0.12) {
+    let osc = audioCtx.createOscillator();
+    let gain = audioCtx.createGain();
 
     osc.connect(gain);
-    gain.connect(ctxAudio.destination);
+    gain.connect(audioCtx.destination);
 
-    osc.frequency.value = 800;
+    osc.frequency.value = freq;
     osc.type = "sine";
 
-    gain.gain.setValueAtTime(0.1, ctxAudio.currentTime);
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
 
     osc.start();
-    osc.stop(ctxAudio.currentTime + 0.15);
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+function startAlarmLoop(state) {
+
+    if (alarmInterval) clearInterval(alarmInterval);
+
+    currentAlarm = state;
+
+    let speed, freq;
+
+    if (state === "CRITICAL") {
+        speed = 300;   // very fast
+        freq = 1200;   // sharp
+    } 
+    else if (state === "WARNING") {
+        speed = 700;
+        freq = 900;
+    } 
+    else {
+        speed = 1200;  // slow calm
+        freq = 700;
+    }
+
+    alarmInterval = setInterval(() => {
+        playTone(freq);
+    }, speed);
 }
 
 // 🫀 ECG SIGNAL
@@ -115,7 +142,7 @@ function grid() {
     }
 }
 
-// 📊 SPECTRUM (FIXED LOWER GRAPH)
+// 📊 SPECTRUM
 function drawSpectrum() {
 
     if (!sctx) return;
@@ -176,11 +203,17 @@ function draw() {
     // 🎨 COLOR ALERT
     if (alarm === "CRITICAL") {
         alarmEl.style.color = "red";
-        beep(); // 🔊 SOUND HERE
-    } else if (alarm === "WARNING") {
+    } 
+    else if (alarm === "WARNING") {
         alarmEl.style.color = "orange";
-    } else {
+    } 
+    else {
         alarmEl.style.color = "#00ff88";
+    }
+
+    // 🔊 UPDATE SOUND ONLY WHEN STATE CHANGES
+    if (alarm !== currentAlarm) {
+        startAlarmLoop(alarm);
     }
 
     // 📊 DRAW LOWER GRAPH
@@ -192,10 +225,17 @@ function draw() {
 // ▶️ CONTROLS
 function toggle() {
     running = !running;
-    if (running) draw();
+
+    if (running) {
+        audioCtx.resume(); // browser requirement
+        startAlarmLoop("NORMAL");
+        draw();
+    } else {
+        if (alarmInterval) clearInterval(alarmInterval);
+    }
 }
 
-// 👤 OPTIONAL (if button exists)
+// 👤 SWITCH PATIENT
 function switchPatient() {
     signal = [];
     bpm = 0;
