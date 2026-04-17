@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ECG Analyzer Final</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <h1> ECG Biomedical Analyzer </h1>
+
+    <canvas id="canvas"></canvas>
+    <canvas id="spectrum"></canvas>
+
+    <div class="controls">
+        <button onclick="toggle()">Start / Stop</button>
+        <button onclick="switchPatient()">Switch Patient</button>
+    </div>
+
+    <div class="stats">
+        <div id="bpm">BPM: --</div>
+        <div id="risk">Risk Score: --</div>
+		<div id="ai">Anomaly Score: --</div>
+    </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
