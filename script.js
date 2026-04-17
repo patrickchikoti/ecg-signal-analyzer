@@ -19,7 +19,7 @@ let signal = [];
 let bpm = 0;
 let lastPeak = Date.now();
 
-// 🔊 CALM SOUND ENGINE
+// 🔊 GOOGLE-STYLE SOUND ENGINE
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let alarmInterval = null;
 
@@ -27,47 +27,65 @@ let currentAlarm = "NORMAL";
 let lastStableAlarm = "NORMAL";
 let changeTimer = 0;
 
-// 🎵 VERY SOFT HEART-WARMING SOUND
-function playTone(freq, duration = 0.12) {
+// 🎵 GOOGLE-LIKE CHIME (2-tone)
+function playChime(baseFreq = 520) {
 
-    let osc = audioCtx.createOscillator();
-    let gain = audioCtx.createGain();
+    let t = audioCtx.currentTime;
 
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    let osc1 = audioCtx.createOscillator();
+    let gain1 = audioCtx.createGain();
 
-    osc.frequency.value = freq;
-    osc.type = "sine"; // smooth sound
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
 
-    gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.05, audioCtx.currentTime + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+    osc1.frequency.value = baseFreq;
+    osc1.type = "sine";
 
-    osc.start();
-    osc.stop(audioCtx.currentTime + duration);
+    gain1.gain.setValueAtTime(0.0001, t);
+    gain1.gain.exponentialRampToValueAtTime(0.08, t + 0.03);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+
+    osc1.start(t);
+    osc1.stop(t + 0.25);
+
+    // second tone (higher pitch)
+    let osc2 = audioCtx.createOscillator();
+    let gain2 = audioCtx.createGain();
+
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.destination);
+
+    osc2.frequency.value = baseFreq * 1.5;
+
+    gain2.gain.setValueAtTime(0.0001, t + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.06, t + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+
+    osc2.start(t + 0.1);
+    osc2.stop(t + 0.35);
 }
 
-// 🔁 VERY CALM LOOP
+// 🔁 LOOP (CALM + SMART)
 function startAlarmLoop(state) {
 
     if (alarmInterval) clearInterval(alarmInterval);
 
     currentAlarm = state;
 
-    let speed = 1500; // slow always
-    let freq = 500;   // soft tone
+    let speed = 2000;
+    let baseFreq = 520;
 
     if (state === "WARNING") {
-        speed = 1200;
-        freq = 550;
+        speed = 1500;
+        baseFreq = 580;
     } 
     else if (state === "CRITICAL") {
-        speed = 900;
-        freq = 600;
+        speed = 1000;
+        baseFreq = 650;
     }
 
     alarmInterval = setInterval(() => {
-        playTone(freq);
+        playChime(baseFreq);
     }, speed);
 }
 
@@ -198,7 +216,7 @@ function draw() {
     let risk = riskIndex(bpm);
     let rawAlarm = alarmState(bpm);
 
-    // 🧠 STABILITY
+    // 🧠 STABILITY FIX
     if (rawAlarm !== lastStableAlarm) {
         changeTimer++;
         if (changeTimer > 20) {
