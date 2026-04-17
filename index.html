@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ECG BIOMEDICAL ANALYZER </title>
+<title>ECG BIOMEDICAL ANALYZER</title>
 <link rel="stylesheet" href="style.css">
 </head>
 
@@ -10,27 +10,33 @@
 
 <div class="app">
 
-    <h1> ECG Biomedical Analyzer </h1>
+    <h1>ECG Biomedical Analyzer</h1>
 
+    <!-- ECG waveform -->
     <canvas id="canvas"></canvas>
+
+    <!-- Spectrum / frequency view -->
     <canvas id="spectrum"></canvas>
 
+    <!-- Controls -->
     <div class="controls">
         <button onclick="toggle()">Start / Stop</button>
         <button onclick="switchPatient()">Switch Patient</button>
     </div>
 
+    <!-- Stats Panel -->
     <div class="stats">
         <div id="bpm">BPM: --</div>
-        <div id="risk">Risk Score: --</div>
-		<div id="risk">Risk Index: --</div>
-<div id="alarm">Alarm: --</div>
-<audio id="alarmSound" src="alarm.mp3" preload="auto"></audio>
-		
+        <div id="risk">Risk Index: --</div>
+        <div id="alarm">Alarm: --</div>
     </div>
+
+    <!-- Alarm sound (no UI change, handled by JS) -->
+    <audio id="alarmSound" preload="auto"></audio>
 
 </div>
 
 <script src="script.js"></script>
+
 </body>
 </html>
