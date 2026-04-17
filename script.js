@@ -1,35 +1,21 @@
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-const specCanvas = document.getElementById("spectrum");
-const sctx = specCanvas.getContext("2d");
-
-canvas.width = 520;
-canvas.height = 220;
-
-specCanvas.width = 520;
-specCanvas.height = 120;
+const spec = document.getElementById("spectrum");
+const sctx = spec ? spec.getContext("2d") : null;
 
 let running = false;
 let x = 0;
-let currentPatient = 0;
-
-const patients = [
-    { noise: 6 },
-    { noise: 15 },
-    { noise: 20 }
-];
 
 let signal = [];
 let bpm = 0;
 let lastPeak = Date.now();
 
-// 🫀 ECG SIGNAL
+// 📊 ECG SIGNAL
 function ecg(i) {
 
-    let p = patients[currentPatient];
-
-    let noise = (Math.random() - 0.5) * p.noise;
+    let noise = (Math.random() - 0.5) * 8;
     let cycle = i % 100;
 
     let value = 0;
@@ -57,58 +43,39 @@ function ecg(i) {
     return value + noise;
 }
 
-// 📊 SIMPLE FFT (approx)
-function computeFFT(data) {
+// 📊 RISK INDEX (clinical logic)
+function riskIndex(bpm) {
 
-    let N = data.length;
-    let result = [];
-
-    for (let k = 0; k < 50; k++) {
-
-        let re = 0;
-        let im = 0;
-
-        for (let n = 0; n < N; n++) {
-            let angle = (2 * Math.PI * k * n) / N;
-            re += data[n] * Math.cos(angle);
-            im -= data[n] * Math.sin(angle);
-        }
-
-        result.push(Math.sqrt(re * re + im * im));
-    }
-
-    return result;
-}
-
-// 🎨 DRAW FFT
-function drawSpectrum() {
-
-    let fft = computeFFT(signal.slice(-100));
-
-    sctx.fillStyle = "black";
-    sctx.fillRect(0, 0, specCanvas.width, specCanvas.height);
-
-    sctx.fillStyle = "#00e6ff";
-
-    fft.forEach((v, i) => {
-        sctx.fillRect(i * 5, specCanvas.height - v / 10, 4, v / 10);
-    });
-}
-
-// 🤖 AI SCORE (combined logic)
-function aiScore() {
+    if (!bpm) return 0;
 
     let score = 0;
 
-    if (bpm < 60 || bpm > 100) score += 40;
+    if (bpm < 60) score += 40;
+    if (bpm > 100) score += 40;
+    if (bpm < 40 || bpm > 130) score += 30;
 
-    let variability = Math.random() * 30;
-    score += variability;
+    return Math.min(100, score);
+}
 
-    let noise = patients[currentPatient].noise;
-    score += noise;
+// 🚨 ALARM STATE
+function alarmState(bpm) {
 
-    return Math.min(100, Math.round(score));
+    if (!bpm) return "No Data";
+
+    if (bpm < 40 || bpm > 130) return "CRITICAL";
+    if (bpm < 60 || bpm > 100) return "WARNING";
+
+    return "NORMAL";
+}
+
+// 🔊 SOUND SYSTEM
+function playAlarm(state) {
+
+    let audio = document.getElementById("alarmSound");
+
+    if (state === "CRITICAL") {
+        audio.play().catch(() => {});
+    }
 }
 
 // 🎨 GRID
@@ -158,18 +125,31 @@ function draw() {
 
     ctx.stroke();
 
-    drawSpectrum();
-
     x++;
 
-    document.getElementById("bpm").innerText =
-        "BPM: " + (bpm || "--");
+    // 📊 CALCULATIONS
+    let risk = riskIndex(bpm);
+    let alarm = alarmState(bpm);
 
-    document.getElementById("risk").innerText =
-        "Risk Score: " + aiScore();
+    // 📊 UI UPDATE
+    document.getElementById("bpm").innerText = "BPM: " + (bpm || "--");
 
-	document.getElementById("ai").innerText =
-		    "Anomaly Score: " + aiScore();
+    document.getElementById("risk").innerText = "Risk Index: " + risk;
+
+    let alarmEl = document.getElementById("alarm");
+    alarmEl.innerText = "Alarm: " + alarm;
+
+    // 🎨 COLOR ALERT (NO UI CHANGE, ONLY TEXT COLOR)
+    if (alarm === "CRITICAL") {
+        alarmEl.style.color = "red";
+    } else if (alarm === "WARNING") {
+        alarmEl.style.color = "orange";
+    } else {
+        alarmEl.style.color = "#00ff88";
+    }
+
+    // 🔊 SOUND TRIGGER
+    playAlarm(alarm);
 
     requestAnimationFrame(draw);
 }
@@ -178,10 +158,4 @@ function draw() {
 function toggle() {
     running = !running;
     if (running) draw();
-}
-
-function switchPatient() {
-    currentPatient = (currentPatient + 1) % patients.length;
-    signal = [];
-    bpm = 0;
 }
