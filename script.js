@@ -1,16 +1,15 @@
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 const spec = document.getElementById("spectrum");
-const sctx = spec ? spec.getContext("2d") : null;
+const sctx = spec.getContext("2d");
 
 canvas.width = 520;
 canvas.height = 220;
 
-if (spec) {
-    spec.width = 520;
-    spec.height = 120;
-}
+spec.width = 520;
+spec.height = 120;
 
 // ================= STATE =================
 let running = false;
@@ -22,78 +21,52 @@ let lastPeak = Date.now();
 
 let history = [];
 
-// stability system (1 minute behavior)
-let lastStableAlarm = "NORMAL";
+// alarm stability (1 minute rule)
+let currentState = "NORMAL";
 let changeCounter = 0;
 
-// ================= AUDIO (REAL PHONE RINGTONE STYLE) =================
-let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let toneLoop = null;
+// ================= AUDIO =================
+const alarmSound = document.getElementById("alarmSound");
 
-function playRingTone(freq1, freq2) {
-
-    let t = audioCtx.currentTime;
-
-    let osc1 = audioCtx.createOscillator();
-    let gain1 = audioCtx.createGain();
-
-    osc1.type = "sine";
-    osc1.frequency.value = freq1;
-
-    osc1.connect(gain1);
-    gain1.connect(audioCtx.destination);
-
-    gain1.gain.setValueAtTime(0.0001, t);
-    gain1.gain.exponentialRampToValueAtTime(0.07, t + 0.05);
-    gain1.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
-
-    osc1.start(t);
-    osc1.stop(t + 0.3);
-
-    let osc2 = audioCtx.createOscillator();
-    let gain2 = audioCtx.createGain();
-
-    osc2.type = "sine";
-    osc2.frequency.value = freq2;
-
-    osc2.connect(gain2);
-    gain2.connect(audioCtx.destination);
-
-    gain2.gain.setValueAtTime(0.0001, t + 0.15);
-    gain2.gain.exponentialRampToValueAtTime(0.05, t + 0.2);
-    gain2.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
-
-    osc2.start(t + 0.15);
-    osc2.stop(t + 0.45);
+// ensure user interaction allows audio
+function unlockAudio() {
+    alarmSound.play().then(() => {
+        alarmSound.pause();
+        alarmSound.currentTime = 0;
+    }).catch(() => {});
 }
 
-// ringtone loop system
-function startSound(state) {
+// ringtone behavior
+function playRingtone(state) {
 
-    if (toneLoop) clearInterval(toneLoop);
+    if (!alarmSound) return;
 
-    let freq1 = 520;
-    let freq2 = 660;
-    let speed = 2000;
+    if (state === currentState && !alarmSound.paused) return;
+
+    currentState = state;
+
+    alarmSound.pause();
+    alarmSound.currentTime = 0;
+
+    if (state === "NORMAL") {
+        alarmSound.playbackRate = 1.0;
+        alarmSound.volume = 0.3;
+    }
 
     if (state === "WARNING") {
-        freq1 = 580;
-        freq2 = 720;
-        speed = 1600;
+        alarmSound.playbackRate = 1.05;
+        alarmSound.volume = 0.6;
     }
 
     if (state === "CRITICAL") {
-        freq1 = 650;
-        freq2 = 820;
-        speed = 1200;
+        alarmSound.playbackRate = 1.2;
+        alarmSound.volume = 1.0;
     }
 
-    toneLoop = setInterval(() => {
-        playRingTone(freq1, freq2);
-    }, speed);
+    alarmSound.play().catch(() => {});
 }
 
-// ================= ECG =================
+// ================= ECG SIGNAL =================
 function ecg(i) {
 
     let noise = (Math.random() - 0.5) * 8;
@@ -172,8 +145,6 @@ function grid() {
 // ================= SPECTRUM =================
 function drawSpectrum() {
 
-    if (!sctx) return;
-
     sctx.fillStyle = "black";
     sctx.fillRect(0, 0, spec.width, spec.height);
 
@@ -187,77 +158,50 @@ function drawSpectrum() {
     }
 }
 
-// ================= REAL MEDICAL PDF =================
+// ================= PDF EXPORT =================
 function exportPDF() {
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
     let risk = riskIndex(bpm);
-    let alarm = lastStableAlarm;
+    let alarm = currentState;
 
     let now = new Date();
 
-    // HEADER
     doc.setFontSize(16);
-    doc.text("HOSPITAL ECG DIAGNOSTIC REPORT", 20, 20);
+    doc.text("ECG BIOMEDICAL REPORT", 20, 20);
 
     doc.setFontSize(11);
 
-    // PATIENT SECTION
-    doc.text("PATIENT INFORMATION", 20, 40);
-    doc.text("Name: xxxxxxxxxxxxxxxxx", 20, 50);
-    doc.text("Age: xx", 20, 58);
-    doc.text("Sex: xx", 20, 66);
-    doc.text("Hospital: xxxxxxxxxxxxxxxxx", 20, 74);
-    doc.text("Department: ICU", 20, 82);
-    doc.text("Bed Number: xxxx", 20, 90);
+    doc.text("PATIENT: xxxxxxxxx", 20, 40);
+    doc.text("HOSPITAL: xxxxxxxxx", 20, 50);
+    doc.text("DEPARTMENT: ICU", 20, 60);
+    doc.text("BED NO: xxxx", 20, 70);
+    doc.text("DOCTOR: xxxxxxxxx", 20, 80);
+    doc.text("TECHNICIAN: xxxxxxxxx", 20, 90);
 
-    // MEDICAL TEAM
-    doc.text("MEDICAL TEAM", 20, 105);
-    doc.text("Doctor: xxxxxxxxxxxxxxxxx", 20, 113);
-    doc.text("Biomedical Technician: xxxxxxxxxxxxx", 20, 121);
+    doc.text("CLINICAL DATA", 20, 110);
+    doc.text(`BPM: ${bpm || "N/A"}`, 20, 120);
+    doc.text(`Risk Index: ${risk}`, 20, 130);
+    doc.text(`Condition: ${alarm}`, 20, 140);
 
-    // VITAL SIGNS
-    doc.text("CLINICAL DATA", 20, 136);
-    doc.text(`Heart Rate (BPM): ${bpm || "N/A"}`, 20, 144);
-    doc.text(`Risk Index: ${risk}/100`, 20, 152);
-    doc.text(`Condition: ${alarm}`, 20, 160);
-
-    // INTERPRETATION
-    doc.text("INTERPRETATION", 20, 175);
-
-    let interpretation =
+    let action =
         alarm === "NORMAL"
-            ? "Patient is stable. No immediate intervention required."
+            ? "Stable condition"
             : alarm === "WARNING"
-            ? "Abnormal rhythm detected. Continuous monitoring recommended."
-            : "CRITICAL CONDITION: Immediate medical intervention required in ICU.";
+            ? "Monitor closely"
+            : "URGENT ICU ACTION REQUIRED";
 
-    doc.text(interpretation, 20, 183);
+    doc.text("ACTION: " + action, 20, 160);
 
-    // ACTION
-    doc.text("IMMEDIATE ACTION", 20, 198);
-    doc.text(
-        alarm === "CRITICAL"
-            ? "Activate emergency response protocol."
-            : alarm === "WARNING"
-            ? "Increase monitoring frequency and reassess."
-            : "Continue routine monitoring.",
-        20,
-        206
-    );
+    doc.text(`DATE: ${now.toLocaleDateString()}`, 20, 180);
+    doc.text(`TIME: ${now.toLocaleTimeString()}`, 20, 190);
 
-    // FOOTER
-    doc.text(`Date: ${now.toLocaleDateString()}`, 20, 220);
-    doc.text(`Time: ${now.toLocaleTimeString()}`, 20, 228);
-
-    doc.text("Generated by ECG Biomedical Analyzer System", 20, 240);
-
-    doc.save("ECG_Patient_Report.pdf");
+    doc.save("ECG_Report.pdf");
 }
 
-// ================= DRAW =================
+// ================= LOOP =================
 function draw() {
 
     if (!running) return;
@@ -284,35 +228,27 @@ function draw() {
     x++;
 
     let risk = riskIndex(bpm);
-    let rawAlarm = alarmState(bpm);
+    let raw = alarmState(bpm);
 
     // 1-minute stability (~180 frames)
-    if (rawAlarm !== lastStableAlarm) {
+    if (raw !== currentState) {
         changeCounter++;
         if (changeCounter > 180) {
-            lastStableAlarm = rawAlarm;
+            currentState = raw;
             changeCounter = 0;
         }
     } else {
         changeCounter = 0;
     }
 
-    let alarm = lastStableAlarm;
-
-    history.push({ bpm, risk, alarm });
-    if (history.length > 200) history.shift();
+    history.push({ bpm, risk, currentState });
 
     document.getElementById("bpm").innerText = "BPM: " + (bpm || "--");
     document.getElementById("risk").innerText = "Risk Index: " + risk;
+    document.getElementById("alarm").innerText = "Alarm: " + currentState;
 
-    let alarmEl = document.getElementById("alarm");
-    alarmEl.innerText = "Alarm: " + alarm;
-
-    alarmEl.style.color =
-        alarm === "CRITICAL" ? "red" :
-        alarm === "WARNING" ? "orange" : "#00ff88";
-
-    startSound(alarm);
+    // 🔊 SOUND
+    playRingtone(currentState);
 
     drawSpectrum();
 
@@ -322,11 +258,10 @@ function draw() {
 // ================= CONTROLS =================
 function toggle() {
     running = !running;
+
     if (running) {
-        audioCtx.resume();
+        unlockAudio();
         draw();
-    } else {
-        clearInterval(toneLoop);
     }
 }
 
