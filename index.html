@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ECG BIOMEDICAL ANALYZER</title>
+<title>ECG Biomedical Analyzer</title>
+
+<!-- PDF LIBRARY (REQUIRED FOR EXPORT) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <link rel="stylesheet" href="style.css">
 </head>
 
@@ -12,31 +16,35 @@
 
     <h1>ECG Biomedical Analyzer</h1>
 
-    <!-- ECG waveform -->
+    <!-- MAIN ECG GRAPH -->
     <canvas id="canvas"></canvas>
 
-    <!-- Spectrum / frequency view -->
+    <!-- LOWER SIGNAL SPECTRUM -->
     <canvas id="spectrum"></canvas>
 
-    <!-- Controls -->
+    <!-- CONTROLS -->
     <div class="controls">
+
         <button onclick="toggle()">Start / Stop</button>
         <button onclick="switchPatient()">Switch Patient</button>
-        <button onclick="exportPDF()">Export Report</button>
+        <button onclick="exportPDF()">Export PDF Report</button>
+
     </div>
 
-    <!-- Stats Panel -->
+    <!-- LIVE STATS -->
     <div class="stats">
+
         <div id="bpm">BPM: --</div>
         <div id="risk">Risk Index: --</div>
-        <div id="alarm">Alarm: --</div>
-    </div>
 
-    <!-- Alarm sound (no UI change, handled by JS) -->
-    <audio id="alarmSound" preload="auto"></audio>
+        <!-- IMPORTANT: ONLY ONE alarm ID (FIXED BUG YOU HAD BEFORE) -->
+        <div id="alarm">Alarm: --</div>
+
+    </div>
 
 </div>
 
+<!-- MAIN SCRIPT -->
 <script src="script.js"></script>
 
 </body>
