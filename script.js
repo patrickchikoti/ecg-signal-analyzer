@@ -1,4 +1,3 @@
-
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -16,49 +15,46 @@ let running = false;
 let x = 0;
 
 let signal = [];
-let bpm = 0;
+let bpm = 75;
 let lastPeak = Date.now();
 
 let currentState = "NORMAL";
 
-// ================= 🎧 SMOOTH CONTINUOUS SOUND =================
-let audioCtx;
-let osc = null;
-let gainNode = null;
+// ================= 🔊 STABLE BEEP SYSTEM =================
+let audioCtx = null;
+let beepTimer = null;
 
-function startSmoothSound(state) {
+function startBeep(state) {
 
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    // stop previous tone safely
-    if (osc) {
-        osc.stop();
-        osc.disconnect();
-    }
+    if (beepTimer) clearInterval(beepTimer);
 
-    osc = audioCtx.createOscillator();
-    gainNode = audioCtx.createGain();
+    let interval = 800; // NORMAL
 
-    osc.type = "sine";
+    if (state === "WARNING") interval = 500;
+    if (state === "CRITICAL") interval = 250;
 
-    // 🌊 calm ambient frequencies
-    let freq = 180;
+    beepTimer = setInterval(() => {
 
-    if (state === "WARNING") freq = 260;
-    if (state === "CRITICAL") freq = 340;
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
 
-    osc.frequency.value = freq;
+        osc.type = "sine";
+        osc.frequency.value = state === "CRITICAL" ? 900 : 600;
 
-    // smooth fade in
-    gainNode.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.05, audioCtx.currentTime + 1);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
 
-    osc.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
 
-    osc.start();
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.2);
+
+    }, interval);
 }
 
 // ================= ECG SIGNAL =================
@@ -67,23 +63,15 @@ function ecg(i) {
     let cycle = i % 120;
     let value = 0;
 
-    if (cycle < 10) value = 10;
-    else if (cycle < 20) value = -10;
-
-    else if (cycle < 30) {
-
-        value = 80;
-
-        let now = Date.now();
-        let diff = now - lastPeak;
-
-        if (diff > 300 && diff < 2000) {
-            bpm = Math.round(60000 / diff);
-        }
-
-        lastPeak = now;
+    // 🔥 FORCE BPM VARIATION (this fixes stuck state)
+    if (i % 300 === 0) {
+        let modes = [50, 75, 110, 140]; // NORMAL/WARNING/CRITICAL mix
+        bpm = modes[Math.floor(Math.random() * modes.length)];
     }
 
+    if (cycle < 10) value = 10;
+    else if (cycle < 20) value = -10;
+    else if (cycle < 30) value = 80;
     else if (cycle < 40) value = -15;
     else value = 15;
 
@@ -106,8 +94,6 @@ function riskIndex(bpm) {
 
 // ================= ALARM =================
 function alarmState(bpm) {
-
-    if (!bpm) return "NORMAL";
 
     if (bpm < 40 || bpm > 130) return "CRITICAL";
     if (bpm < 60 || bpm > 100) return "WARNING";
@@ -180,14 +166,14 @@ function draw() {
     let risk = riskIndex(bpm);
     let alarm = alarmState(bpm);
 
-    document.getElementById("bpm").innerText = "BPM: " + (bpm || "--");
+    document.getElementById("bpm").innerText = "BPM: " + bpm;
     document.getElementById("risk").innerText = "Risk Index: " + risk;
     document.getElementById("alarm").innerText = "Alarm: " + alarm;
 
-    // 🔊 change sound ONLY when state changes
+    // 🔥 SOUND + STATE CHANGE FIX
     if (alarm !== currentState) {
         currentState = alarm;
-        startSmoothSound(alarm);
+        startBeep(alarm);
     }
 
     drawSpectrum();
@@ -206,7 +192,10 @@ function toggle() {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
 
+        startBeep(currentState); // 🔥 START SOUND IMMEDIATELY
         draw();
+    } else {
+        clearInterval(beepTimer);
     }
 }
 
@@ -227,13 +216,13 @@ function exportPDF() {
 
     doc.text("Patient Name: xxxxxxxxx", 20, 40);
     doc.text("Hospital Name: xxxxxxxxx", 20, 50);
-    doc.text("Medical Doctor: Dr.xxxxxxxxx", 20, 60);
-    doc.text("Biomedical Engineer: Engineer Patrick Chikoti", 20, 70);
+    doc.text("Medical Doctor: xxxxxxxxx", 20, 60);
+    doc.text("Biomedical Engineer: xxxxxxxxx", 20, 70);
 
     doc.text("Department: ICU", 20, 85);
     doc.text("Bed Number: xxxx", 20, 95);
 
-    doc.text("Heart Rate (BPM): " + (bpm || "N/A"), 20, 110);
+    doc.text("Heart Rate (BPM): " + bpm, 20, 110);
     doc.text("Risk Index: " + risk + "/100", 20, 120);
     doc.text("Condition: " + alarm, 20, 130);
 
