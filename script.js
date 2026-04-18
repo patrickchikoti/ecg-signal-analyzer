@@ -2,57 +2,72 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
+const spec = document.getElementById("spectrum");
+const sctx = spec.getContext("2d");
+
 canvas.width = 520;
 canvas.height = 220;
+
+spec.width = 520;
+spec.height = 120;
 
 // ================= STATE =================
 let running = false;
 let x = 0;
 
 let signal = [];
+let spectrumData = [];
+
 let bpm = 0;
 let lastPeak = Date.now();
 
 let currentState = "NORMAL";
 
-// ================= SIMPLE BEEP SOUND =================
-// THIS ALWAYS WORKS (NO FILES NEEDED)
-let audioCtx = null;
+// ================= AUDIO (CONTINUOUS BEEP) =================
+let audioCtx;
+let beepInterval = null;
 
-function beep(state) {
+function startBeep(state) {
 
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    let freq = 600;
+    if (beepInterval) clearInterval(beepInterval);
 
-    if (state === "WARNING") freq = 900;
-    if (state === "CRITICAL") freq = 1200;
+    let freq = 500;
 
-    let osc = audioCtx.createOscillator();
-    let gain = audioCtx.createGain();
+    if (state === "WARNING") freq = 800;
+    if (state === "CRITICAL") freq = 1100;
 
-    osc.type = "sine";
-    osc.frequency.value = freq;
+    beepInterval = setInterval(() => {
 
-    gain.gain.value = 0.08;
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
 
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+        osc.type = "sine";
+        osc.frequency.value = freq;
 
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.12);
+        gain.gain.value = 0.05;
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+
+    }, state === "CRITICAL" ? 300 : 600);
 }
 
-// ================= ECG =================
+// ================= ECG SIGNAL =================
 function ecg(i) {
 
-    let cycle = i % 100;
-    let value = Math.random() * 5;
+    let cycle = i % 120;
+
+    let value = 0;
 
     if (cycle < 10) value = 10;
-    else if (cycle < 20) value = -8;
+    else if (cycle < 20) value = -10;
 
     else if (cycle < 30) {
 
@@ -68,10 +83,10 @@ function ecg(i) {
         lastPeak = now;
     }
 
-    else if (cycle < 40) value = -10;
-    else value = 20;
+    else if (cycle < 40) value = -15;
+    else value = 15;
 
-    return value;
+    return value + (Math.random() * 6 - 3);
 }
 
 // ================= RISK =================
@@ -99,13 +114,51 @@ function alarmState(bpm) {
     return "NORMAL";
 }
 
-// ================= DRAW =================
+// ================= GRID =================
+function grid() {
+
+    ctx.strokeStyle = "#003344";
+
+    for (let i = 0; i < canvas.width; i += 20) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, canvas.height);
+        ctx.stroke();
+    }
+
+    for (let j = 0; j < canvas.height; j += 20) {
+        ctx.beginPath();
+        ctx.moveTo(0, j);
+        ctx.lineTo(canvas.width, j);
+        ctx.stroke();
+    }
+}
+
+// ================= SPECTRUM =================
+function drawSpectrum() {
+
+    sctx.fillStyle = "black";
+    sctx.fillRect(0, 0, spec.width, spec.height);
+
+    sctx.fillStyle = "#00e6ff";
+
+    let data = signal.slice(-60);
+
+    for (let i = 0; i < data.length; i++) {
+        let h = Math.abs(data[i]) * 1.2;
+        sctx.fillRect(i * 8, spec.height - h, 5, h);
+    }
+}
+
+// ================= DRAW ECG =================
 function draw() {
 
     if (!running) return;
 
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    grid();
 
     let value = ecg(x);
     signal.push(value);
@@ -130,11 +183,13 @@ function draw() {
     document.getElementById("risk").innerText = "Risk Index: " + risk;
     document.getElementById("alarm").innerText = "Alarm: " + alarm;
 
-    // ================= STABLE SOUND CONTROL =================
+    // update sound continuously when state changes
     if (alarm !== currentState) {
         currentState = alarm;
-        beep(alarm);
+        startBeep(alarm);
     }
+
+    drawSpectrum();
 
     requestAnimationFrame(draw);
 }
@@ -152,7 +207,7 @@ function toggle() {
     }
 }
 
-// ================= PDF EXPORT (FULL FIXED DETAILS) =================
+// ================= PDF =================
 function exportPDF() {
 
     const { jsPDF } = window.jspdf;
@@ -163,40 +218,34 @@ function exportPDF() {
 
     let now = new Date();
 
-    // HEADER
     doc.setFontSize(16);
-    doc.text("HOSPITAL ECG BIOMEDICAL REPORT", 20, 20);
+    doc.text("HOSPITAL ECG REPORT", 20, 20);
 
-    // PATIENT DETAILS
     doc.setFontSize(11);
-    doc.text("Patient Name: xxxxxxxxxxxxxxxxx", 20, 40);
-    doc.text("Hospital Name: xxxxxxxxxxxxxxxxx", 20, 50);
-    doc.text("Medical Doctor: xxxxxxxxxxxxxxxxx", 20, 60);
-    doc.text("Biomedical Technician: xxxxxxxxxxxxx", 20, 70);
+
+    doc.text("Patient: xxxxxxxxx", 20, 40);
+    doc.text("Hospital: xxxxxxxxx", 20, 50);
+    doc.text("Doctor: xxxxxxxxx", 20, 60);
+    doc.text("Technician: xxxxxxxxx", 20, 70);
 
     doc.text("Department: ICU", 20, 85);
-    doc.text("Bed Number: xxxx", 20, 95);
+    doc.text("Bed: xxxx", 20, 95);
 
-    // VITALS
-    doc.text("Heart Rate (BPM): " + (bpm || "N/A"), 20, 110);
-    doc.text("Risk Index: " + risk + "/100", 20, 120);
+    doc.text("BPM: " + (bpm || "N/A"), 20, 110);
+    doc.text("Risk: " + risk, 20, 120);
     doc.text("Condition: " + alarm, 20, 130);
 
-    // ACTION
     let action =
-        alarm === "NORMAL"
-            ? "Patient stable. Continue monitoring."
+        alarm === "CRITICAL"
+            ? "IMMEDIATE ICU ACTION REQUIRED"
             : alarm === "WARNING"
-            ? "Abnormal signs detected. Increase monitoring."
-            : "CRITICAL CONDITION: Immediate ICU intervention required.";
+            ? "Close monitoring required"
+            : "Patient stable";
 
-    doc.text("Immediate Action: " + action, 20, 150);
+    doc.text("Action: " + action, 20, 150);
 
-    // TIME INFO
     doc.text("Date: " + now.toLocaleDateString(), 20, 170);
     doc.text("Time: " + now.toLocaleTimeString(), 20, 180);
 
-    doc.text("Generated by ECG Biomedical Analyzer System", 20, 200);
-
-    doc.save("ECG_Patient_Report.pdf");
+    doc.save("ECG_Report.pdf");
 }
