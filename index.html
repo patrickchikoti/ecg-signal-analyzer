@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>ECG Biomedical Analyzer</title>
 
-<!-- PDF LIBRARY (REQUIRED FOR EXPORT) -->
+<!-- PDF LIBRARY -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <link rel="stylesheet" href="style.css">
@@ -16,35 +16,26 @@
 
     <h1>ECG Biomedical Analyzer</h1>
 
-    <!-- MAIN ECG GRAPH -->
     <canvas id="canvas"></canvas>
-
-    <!-- LOWER SIGNAL SPECTRUM -->
     <canvas id="spectrum"></canvas>
 
-    <!-- CONTROLS -->
     <div class="controls">
-
         <button onclick="toggle()">Start / Stop</button>
         <button onclick="switchPatient()">Switch Patient</button>
         <button onclick="exportPDF()">Export PDF Report</button>
-
     </div>
 
-    <!-- LIVE STATS -->
     <div class="stats">
-
         <div id="bpm">BPM: --</div>
         <div id="risk">Risk Index: --</div>
-
-        <!-- IMPORTANT: ONLY ONE alarm ID (FIXED BUG YOU HAD BEFORE) -->
         <div id="alarm">Alarm: --</div>
-
     </div>
+
+    <!-- 🔊 RINGTONE AUDIO FILE -->
+    <audio id="alarmSound" src="ringtone.mp3" preload="auto"></audio>
 
 </div>
 
-<!-- MAIN SCRIPT -->
 <script src="script.js"></script>
 
 </body>
