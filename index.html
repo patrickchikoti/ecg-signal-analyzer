@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>ECG Biomedical Analyzer</title>
 
-<!-- PDF LIBRARY -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <link rel="stylesheet" href="style.css">
@@ -19,14 +18,12 @@
     <canvas id="canvas"></canvas>
     <canvas id="spectrum"></canvas>
 
-    <!-- CONTROLS -->
     <div class="controls">
 
         <button onclick="toggle()">Start / Stop</button>
         <button onclick="switchPatient()">Switch Patient</button>
         <button onclick="exportPDF()">Export PDF</button>
 
-        <!-- 🎵 RINGTONE SELECT -->
         <select id="ringtoneSelect" onchange="changeRingtone()">
             <option value="ringtone1.mp3">Soft Tone</option>
             <option value="ringtone2.mp3">Classic Tone</option>
@@ -35,14 +32,12 @@
 
     </div>
 
-    <!-- STATS -->
     <div class="stats">
         <div id="bpm">BPM: --</div>
         <div id="risk">Risk Index: --</div>
         <div id="alarm">Alarm: --</div>
     </div>
 
-    <!-- AUDIO -->
     <audio id="alarmSound" preload="auto"></audio>
 
 </div>
