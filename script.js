@@ -19,74 +19,52 @@ let signal = [];
 let bpm = 0;
 let lastPeak = Date.now();
 
-// 🔊 GOOGLE-STYLE SOUND ENGINE
+// 🔊 REAL SMOOTH RINGTONE SOUND
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let alarmInterval = null;
+let oscillator = null;
+let gainNode = null;
 
 let currentAlarm = "NORMAL";
 let lastStableAlarm = "NORMAL";
-let changeTimer = 0;
+let lastChangeTime = Date.now();
 
-// 🎵 GOOGLE-LIKE CHIME (2-tone)
-function playChime(baseFreq = 520) {
+// 🎵 START CONTINUOUS TONE
+function startTone(freq) {
 
-    let t = audioCtx.currentTime;
+    stopTone();
 
-    let osc1 = audioCtx.createOscillator();
-    let gain1 = audioCtx.createGain();
+    oscillator = audioCtx.createOscillator();
+    gainNode = audioCtx.createGain();
 
-    osc1.connect(gain1);
-    gain1.connect(audioCtx.destination);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
 
-    osc1.frequency.value = baseFreq;
-    osc1.type = "sine";
+    oscillator.type = "sine"; // smooth like ringtone
+    oscillator.frequency.value = freq;
 
-    gain1.gain.setValueAtTime(0.0001, t);
-    gain1.gain.exponentialRampToValueAtTime(0.08, t + 0.03);
-    gain1.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+    gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
 
-    osc1.start(t);
-    osc1.stop(t + 0.25);
-
-    // second tone (higher pitch)
-    let osc2 = audioCtx.createOscillator();
-    let gain2 = audioCtx.createGain();
-
-    osc2.connect(gain2);
-    gain2.connect(audioCtx.destination);
-
-    osc2.frequency.value = baseFreq * 1.5;
-
-    gain2.gain.setValueAtTime(0.0001, t + 0.1);
-    gain2.gain.exponentialRampToValueAtTime(0.06, t + 0.12);
-    gain2.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-
-    osc2.start(t + 0.1);
-    osc2.stop(t + 0.35);
+    oscillator.start();
 }
 
-// 🔁 LOOP (CALM + SMART)
-function startAlarmLoop(state) {
-
-    if (alarmInterval) clearInterval(alarmInterval);
-
-    currentAlarm = state;
-
-    let speed = 2000;
-    let baseFreq = 520;
-
-    if (state === "WARNING") {
-        speed = 1500;
-        baseFreq = 580;
-    } 
-    else if (state === "CRITICAL") {
-        speed = 1000;
-        baseFreq = 650;
+// 🔇 STOP SOUND
+function stopTone() {
+    if (oscillator) {
+        oscillator.stop();
+        oscillator.disconnect();
+        oscillator = null;
     }
+}
 
-    alarmInterval = setInterval(() => {
-        playChime(baseFreq);
-    }, speed);
+// 🔁 UPDATE SOUND BASED ON STATE
+function updateSound(state) {
+
+    let freq = 440; // calm default
+
+    if (state === "WARNING") freq = 520;
+    if (state === "CRITICAL") freq = 650;
+
+    startTone(freq);
 }
 
 // 🫀 ECG SIGNAL
@@ -216,15 +194,11 @@ function draw() {
     let risk = riskIndex(bpm);
     let rawAlarm = alarmState(bpm);
 
-    // 🧠 STABILITY FIX
-    if (rawAlarm !== lastStableAlarm) {
-        changeTimer++;
-        if (changeTimer > 20) {
-            lastStableAlarm = rawAlarm;
-            changeTimer = 0;
-        }
-    } else {
-        changeTimer = 0;
+    // ⏱️ 1-MINUTE STABILITY LOCK
+    let now = Date.now();
+    if (rawAlarm !== lastStableAlarm && (now - lastChangeTime > 60000)) {
+        lastStableAlarm = rawAlarm;
+        lastChangeTime = now;
     }
 
     let alarm = lastStableAlarm;
@@ -246,9 +220,10 @@ function draw() {
         alarmEl.style.color = "#00ff88";
     }
 
-    // 🔊 SOUND UPDATE
+    // 🔊 SOUND CHANGE
     if (alarm !== currentAlarm) {
-        startAlarmLoop(alarm);
+        currentAlarm = alarm;
+        updateSound(alarm);
     }
 
     drawSpectrum();
@@ -262,10 +237,10 @@ function toggle() {
 
     if (running) {
         audioCtx.resume();
-        startAlarmLoop("NORMAL");
+        updateSound("NORMAL");
         draw();
     } else {
-        if (alarmInterval) clearInterval(alarmInterval);
+        stopTone();
     }
 }
 
