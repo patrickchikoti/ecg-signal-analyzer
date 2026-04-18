@@ -6,7 +6,6 @@ const sctx = spec.getContext("2d");
 
 canvas.width = 520;
 canvas.height = 220;
-
 spec.width = 520;
 spec.height = 120;
 
@@ -18,18 +17,22 @@ let signal = [];
 let bpm = 0;
 let lastPeak = Date.now();
 
-let history = [];
-
-// alarm stability
 let currentState = "NORMAL";
 let changeCounter = 0;
 
 // ================= AUDIO =================
 const alarmSound = document.getElementById("alarmSound");
 
-// default ringtone
 let selectedRingtone = "ringtone1.mp3";
 alarmSound.src = selectedRingtone;
+
+// unlock audio (VERY IMPORTANT for browsers)
+function unlockAudio() {
+    alarmSound.play().then(() => {
+        alarmSound.pause();
+        alarmSound.currentTime = 0;
+    }).catch(() => {});
+}
 
 // change ringtone
 function changeRingtone() {
@@ -38,31 +41,35 @@ function changeRingtone() {
     alarmSound.load();
 }
 
-// play sound based on state
+// play alarm sound
 function playAlarm(state) {
 
-    if (!alarmSound) return;
+    if (!running) return;
 
     alarmSound.pause();
     alarmSound.currentTime = 0;
 
-    // intensity control only
+    // ensure file is correct
+    alarmSound.src = selectedRingtone;
+
     if (state === "NORMAL") {
-        alarmSound.playbackRate = 1.0;
         alarmSound.volume = 0.3;
+        alarmSound.playbackRate = 1.0;
     }
 
     if (state === "WARNING") {
-        alarmSound.playbackRate = 1.05;
         alarmSound.volume = 0.6;
+        alarmSound.playbackRate = 1.05;
     }
 
     if (state === "CRITICAL") {
-        alarmSound.playbackRate = 1.2;
         alarmSound.volume = 1.0;
+        alarmSound.playbackRate = 1.15;
     }
 
-    alarmSound.play().catch(() => {});
+    setTimeout(() => {
+        alarmSound.play().catch(() => {});
+    }, 50);
 }
 
 // ================= ECG =================
@@ -157,48 +164,6 @@ function drawSpectrum() {
     }
 }
 
-// ================= PDF EXPORT =================
-function exportPDF() {
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    let risk = riskIndex(bpm);
-    let alarm = currentState;
-
-    let now = new Date();
-
-    doc.setFontSize(16);
-    doc.text("ECG BIOMEDICAL REPORT", 20, 20);
-
-    doc.setFontSize(11);
-
-    doc.text("PATIENT: xxxxxxxxx", 20, 40);
-    doc.text("HOSPITAL: xxxxxxxxx", 20, 50);
-    doc.text("DEPARTMENT: ICU", 20, 60);
-    doc.text("BED: xxxx", 20, 70);
-    doc.text("DOCTOR: xxxxxxxxx", 20, 80);
-    doc.text("TECHNICIAN: xxxxxxxxx", 20, 90);
-
-    doc.text("BPM: " + (bpm || "N/A"), 20, 110);
-    doc.text("Risk: " + risk, 20, 120);
-    doc.text("Condition: " + alarm, 20, 130);
-
-    let action =
-        alarm === "NORMAL"
-            ? "Stable patient"
-            : alarm === "WARNING"
-            ? "Monitor closely"
-            : "URGENT ICU ACTION REQUIRED";
-
-    doc.text("ACTION: " + action, 20, 150);
-
-    doc.text("DATE: " + now.toLocaleDateString(), 20, 170);
-    doc.text("TIME: " + now.toLocaleTimeString(), 20, 180);
-
-    doc.save("ECG_Report.pdf");
-}
-
 // ================= LOOP =================
 function draw() {
 
@@ -228,7 +193,7 @@ function draw() {
     let risk = riskIndex(bpm);
     let raw = alarmState(bpm);
 
-    // 1-minute stability (~180 frames)
+    // stable switching (1 minute logic approx)
     if (raw !== currentState) {
         changeCounter++;
         if (changeCounter > 180) {
@@ -253,11 +218,14 @@ function draw() {
 // ================= CONTROLS =================
 function toggle() {
     running = !running;
-    if (running) draw();
+
+    if (running) {
+        unlockAudio();
+        draw();
+    }
 }
 
 function switchPatient() {
     signal = [];
     bpm = 0;
-    history = [];
 }
