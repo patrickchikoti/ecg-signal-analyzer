@@ -19,20 +19,31 @@
     <canvas id="canvas"></canvas>
     <canvas id="spectrum"></canvas>
 
+    <!-- CONTROLS -->
     <div class="controls">
+
         <button onclick="toggle()">Start / Stop</button>
         <button onclick="switchPatient()">Switch Patient</button>
-        <button onclick="exportPDF()">Export PDF Report</button>
+        <button onclick="exportPDF()">Export PDF</button>
+
+        <!-- 🎵 RINGTONE SELECT -->
+        <select id="ringtoneSelect" onchange="changeRingtone()">
+            <option value="ringtone1.mp3">Soft Tone</option>
+            <option value="ringtone2.mp3">Classic Tone</option>
+            <option value="ringtone3.mp3">ICU Alert</option>
+        </select>
+
     </div>
 
+    <!-- STATS -->
     <div class="stats">
         <div id="bpm">BPM: --</div>
         <div id="risk">Risk Index: --</div>
         <div id="alarm">Alarm: --</div>
     </div>
 
-    <!-- 🔊 RINGTONE AUDIO FILE -->
-    <audio id="alarmSound" src="ringtone.mp3" preload="auto"></audio>
+    <!-- AUDIO -->
+    <audio id="alarmSound" preload="auto"></audio>
 
 </div>
 
