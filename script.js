@@ -1,4 +1,3 @@
-
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -21,33 +20,33 @@ let lastPeak = Date.now();
 
 let history = [];
 
-// alarm stability (1 minute rule)
+// alarm stability
 let currentState = "NORMAL";
 let changeCounter = 0;
 
 // ================= AUDIO =================
 const alarmSound = document.getElementById("alarmSound");
 
-// ensure user interaction allows audio
-function unlockAudio() {
-    alarmSound.play().then(() => {
-        alarmSound.pause();
-        alarmSound.currentTime = 0;
-    }).catch(() => {});
+// default ringtone
+let selectedRingtone = "ringtone1.mp3";
+alarmSound.src = selectedRingtone;
+
+// change ringtone
+function changeRingtone() {
+    selectedRingtone = document.getElementById("ringtoneSelect").value;
+    alarmSound.src = selectedRingtone;
+    alarmSound.load();
 }
 
-// ringtone behavior
-function playRingtone(state) {
+// play sound based on state
+function playAlarm(state) {
 
     if (!alarmSound) return;
-
-    if (state === currentState && !alarmSound.paused) return;
-
-    currentState = state;
 
     alarmSound.pause();
     alarmSound.currentTime = 0;
 
+    // intensity control only
     if (state === "NORMAL") {
         alarmSound.playbackRate = 1.0;
         alarmSound.volume = 0.3;
@@ -66,7 +65,7 @@ function playRingtone(state) {
     alarmSound.play().catch(() => {});
 }
 
-// ================= ECG SIGNAL =================
+// ================= ECG =================
 function ecg(i) {
 
     let noise = (Math.random() - 0.5) * 8;
@@ -177,26 +176,25 @@ function exportPDF() {
     doc.text("PATIENT: xxxxxxxxx", 20, 40);
     doc.text("HOSPITAL: xxxxxxxxx", 20, 50);
     doc.text("DEPARTMENT: ICU", 20, 60);
-    doc.text("BED NO: xxxx", 20, 70);
+    doc.text("BED: xxxx", 20, 70);
     doc.text("DOCTOR: xxxxxxxxx", 20, 80);
     doc.text("TECHNICIAN: xxxxxxxxx", 20, 90);
 
-    doc.text("CLINICAL DATA", 20, 110);
-    doc.text(`BPM: ${bpm || "N/A"}`, 20, 120);
-    doc.text(`Risk Index: ${risk}`, 20, 130);
-    doc.text(`Condition: ${alarm}`, 20, 140);
+    doc.text("BPM: " + (bpm || "N/A"), 20, 110);
+    doc.text("Risk: " + risk, 20, 120);
+    doc.text("Condition: " + alarm, 20, 130);
 
     let action =
         alarm === "NORMAL"
-            ? "Stable condition"
+            ? "Stable patient"
             : alarm === "WARNING"
             ? "Monitor closely"
             : "URGENT ICU ACTION REQUIRED";
 
-    doc.text("ACTION: " + action, 20, 160);
+    doc.text("ACTION: " + action, 20, 150);
 
-    doc.text(`DATE: ${now.toLocaleDateString()}`, 20, 180);
-    doc.text(`TIME: ${now.toLocaleTimeString()}`, 20, 190);
+    doc.text("DATE: " + now.toLocaleDateString(), 20, 170);
+    doc.text("TIME: " + now.toLocaleTimeString(), 20, 180);
 
     doc.save("ECG_Report.pdf");
 }
@@ -241,14 +239,11 @@ function draw() {
         changeCounter = 0;
     }
 
-    history.push({ bpm, risk, currentState });
-
     document.getElementById("bpm").innerText = "BPM: " + (bpm || "--");
     document.getElementById("risk").innerText = "Risk Index: " + risk;
     document.getElementById("alarm").innerText = "Alarm: " + currentState;
 
-    // 🔊 SOUND
-    playRingtone(currentState);
+    playAlarm(currentState);
 
     drawSpectrum();
 
@@ -258,11 +253,7 @@ function draw() {
 // ================= CONTROLS =================
 function toggle() {
     running = !running;
-
-    if (running) {
-        unlockAudio();
-        draw();
-    }
+    if (running) draw();
 }
 
 function switchPatient() {
