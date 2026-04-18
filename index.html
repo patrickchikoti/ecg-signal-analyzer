@@ -4,33 +4,44 @@
 <meta charset="UTF-8">
 <title>ECG Biomedical Analyzer</title>
 
-<!-- PDF LIBRARY -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-<link rel="stylesheet" href="style.css">
+<style>
+body {
+    background: black;
+    color: white;
+    text-align: center;
+    font-family: Arial;
+}
+
+canvas {
+    border: 1px solid #003344;
+    margin: 10px;
+}
+
+button {
+    padding: 10px;
+    margin: 5px;
+}
+</style>
+
 </head>
 
 <body>
 
-<div class="app">
+<h1>ECG Biomedical Analyzer</h1>
 
-    <h1>ECG Biomedical Analyzer</h1>
+<canvas id="canvas"></canvas>
+<canvas id="spectrum"></canvas>
 
-    <canvas id="canvas"></canvas>
-    <canvas id="spectrum"></canvas>
+<br>
 
-    <div class="controls">
-        <button onclick="toggle()">Start / Stop</button>
-        <button onclick="exportPDF()">Export PDF</button>
-    </div>
+<button onclick="toggle()">Start / Stop</button>
+<button onclick="exportPDF()">Export PDF</button>
 
-    <div class="stats">
-        <div id="bpm">BPM: --</div>
-        <div id="risk">Risk Index: --</div>
-        <div id="alarm">Alarm: --</div>
-    </div>
-
-</div>
+<h2 id="bpm">BPM: --</h2>
+<h2 id="risk">Risk Index: --</h2>
+<h2 id="alarm">Alarm: --</h2>
 
 <script src="script.js"></script>
 
