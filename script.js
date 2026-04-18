@@ -16,54 +16,55 @@ let running = false;
 let x = 0;
 
 let signal = [];
-let spectrumData = [];
-
 let bpm = 0;
 let lastPeak = Date.now();
 
 let currentState = "NORMAL";
 
-// ================= AUDIO (CONTINUOUS BEEP) =================
+// ================= 🎧 SMOOTH CONTINUOUS SOUND =================
 let audioCtx;
-let beepInterval = null;
+let osc = null;
+let gainNode = null;
 
-function startBeep(state) {
+function startSmoothSound(state) {
 
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    if (beepInterval) clearInterval(beepInterval);
+    // stop previous tone safely
+    if (osc) {
+        osc.stop();
+        osc.disconnect();
+    }
 
-    let freq = 500;
+    osc = audioCtx.createOscillator();
+    gainNode = audioCtx.createGain();
 
-    if (state === "WARNING") freq = 800;
-    if (state === "CRITICAL") freq = 1100;
+    osc.type = "sine";
 
-    beepInterval = setInterval(() => {
+    // 🌊 calm ambient frequencies
+    let freq = 180;
 
-        let osc = audioCtx.createOscillator();
-        let gain = audioCtx.createGain();
+    if (state === "WARNING") freq = 260;
+    if (state === "CRITICAL") freq = 340;
 
-        osc.type = "sine";
-        osc.frequency.value = freq;
+    osc.frequency.value = freq;
 
-        gain.gain.value = 0.05;
+    // smooth fade in
+    gainNode.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.05, audioCtx.currentTime + 1);
 
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
 
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.1);
-
-    }, state === "CRITICAL" ? 300 : 600);
+    osc.start();
 }
 
 // ================= ECG SIGNAL =================
 function ecg(i) {
 
     let cycle = i % 120;
-
     let value = 0;
 
     if (cycle < 10) value = 10;
@@ -150,7 +151,7 @@ function drawSpectrum() {
     }
 }
 
-// ================= DRAW ECG =================
+// ================= DRAW =================
 function draw() {
 
     if (!running) return;
@@ -183,10 +184,10 @@ function draw() {
     document.getElementById("risk").innerText = "Risk Index: " + risk;
     document.getElementById("alarm").innerText = "Alarm: " + alarm;
 
-    // update sound continuously when state changes
+    // 🔊 change sound ONLY when state changes
     if (alarm !== currentState) {
         currentState = alarm;
-        startBeep(alarm);
+        startSmoothSound(alarm);
     }
 
     drawSpectrum();
@@ -200,9 +201,11 @@ function toggle() {
     running = !running;
 
     if (running) {
+
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
+
         draw();
     }
 }
@@ -215,34 +218,33 @@ function exportPDF() {
 
     let risk = riskIndex(bpm);
     let alarm = alarmState(bpm);
-
     let now = new Date();
 
     doc.setFontSize(16);
-    doc.text("HOSPITAL ECG REPORT", 20, 20);
+    doc.text("HOSPITAL ECG BIOMEDICAL REPORT", 20, 20);
 
     doc.setFontSize(11);
 
-    doc.text("Patient: xxxxxxxxx", 20, 40);
-    doc.text("Hospital: xxxxxxxxx", 20, 50);
-    doc.text("Doctor: xxxxxxxxx", 20, 60);
-    doc.text("Technician: xxxxxxxxx", 20, 70);
+    doc.text("Patient Name: xxxxxxxxx", 20, 40);
+    doc.text("Hospital Name: xxxxxxxxx", 20, 50);
+    doc.text("Medical Doctor: Dr.xxxxxxxxx", 20, 60);
+    doc.text("Biomedical Engineer: Engineer Patrick Chikoti", 20, 70);
 
     doc.text("Department: ICU", 20, 85);
-    doc.text("Bed: xxxx", 20, 95);
+    doc.text("Bed Number: xxxx", 20, 95);
 
-    doc.text("BPM: " + (bpm || "N/A"), 20, 110);
-    doc.text("Risk: " + risk, 20, 120);
+    doc.text("Heart Rate (BPM): " + (bpm || "N/A"), 20, 110);
+    doc.text("Risk Index: " + risk + "/100", 20, 120);
     doc.text("Condition: " + alarm, 20, 130);
 
     let action =
         alarm === "CRITICAL"
-            ? "IMMEDIATE ICU ACTION REQUIRED"
+            ? "IMMEDIATE ICU INTERVENTION REQUIRED"
             : alarm === "WARNING"
             ? "Close monitoring required"
             : "Patient stable";
 
-    doc.text("Action: " + action, 20, 150);
+    doc.text("Immediate Action: " + action, 20, 150);
 
     doc.text("Date: " + now.toLocaleDateString(), 20, 170);
     doc.text("Time: " + now.toLocaleTimeString(), 20, 180);
