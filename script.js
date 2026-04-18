@@ -1,3 +1,4 @@
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -14,23 +15,34 @@ let lastPeak = Date.now();
 
 let currentState = "NORMAL";
 
-// ================= AUDIO =================
-const alarmSound = document.getElementById("alarmSound");
+// ================= SIMPLE BEEP SOUND =================
+// THIS ALWAYS WORKS (NO FILES NEEDED)
+let audioCtx = null;
 
-// set default ringtone
-function setRingtone() {
-    alarmSound.src = document.getElementById("ringtoneSelect").value;
-}
-setRingtone();
+function beep(state) {
 
-document.getElementById("ringtoneSelect").addEventListener("change", setRingtone);
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
 
-// unlock audio ONLY ON USER CLICK
-function unlockAudio() {
-    alarmSound.play().then(() => {
-        alarmSound.pause();
-        alarmSound.currentTime = 0;
-    }).catch(() => {});
+    let freq = 600;
+
+    if (state === "WARNING") freq = 900;
+    if (state === "CRITICAL") freq = 1200;
+
+    let osc = audioCtx.createOscillator();
+    let gain = audioCtx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.value = freq;
+
+    gain.gain.value = 0.08;
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.12);
 }
 
 // ================= ECG =================
@@ -41,6 +53,7 @@ function ecg(i) {
 
     if (cycle < 10) value = 10;
     else if (cycle < 20) value = -8;
+
     else if (cycle < 30) {
 
         value = 80;
@@ -63,9 +76,11 @@ function ecg(i) {
 
 // ================= RISK =================
 function riskIndex(bpm) {
+
     if (!bpm) return 0;
 
     let score = 0;
+
     if (bpm < 60) score += 40;
     if (bpm > 100) score += 40;
     if (bpm < 40 || bpm > 130) score += 30;
@@ -77,35 +92,11 @@ function riskIndex(bpm) {
 function alarmState(bpm) {
 
     if (!bpm) return "NORMAL";
+
     if (bpm < 40 || bpm > 130) return "CRITICAL";
     if (bpm < 60 || bpm > 100) return "WARNING";
 
     return "NORMAL";
-}
-
-// ================= SOUND (ONLY ON CHANGE) =================
-function playAlarm(state) {
-
-    if (state === currentState) return; // 🔥 prevents spam sound
-
-    currentState = state;
-
-    alarmSound.pause();
-    alarmSound.currentTime = 0;
-
-    if (state === "NORMAL") {
-        alarmSound.volume = 0.3;
-    }
-
-    if (state === "WARNING") {
-        alarmSound.volume = 0.6;
-    }
-
-    if (state === "CRITICAL") {
-        alarmSound.volume = 1.0;
-    }
-
-    alarmSound.play().catch(() => {});
 }
 
 // ================= DRAW =================
@@ -136,10 +127,14 @@ function draw() {
     let alarm = alarmState(bpm);
 
     document.getElementById("bpm").innerText = "BPM: " + (bpm || "--");
-    document.getElementById("risk").innerText = "Risk: " + risk;
+    document.getElementById("risk").innerText = "Risk Index: " + risk;
     document.getElementById("alarm").innerText = "Alarm: " + alarm;
 
-    playAlarm(alarm);
+    // ================= STABLE SOUND CONTROL =================
+    if (alarm !== currentState) {
+        currentState = alarm;
+        beep(alarm);
+    }
 
     requestAnimationFrame(draw);
 }
@@ -150,12 +145,14 @@ function toggle() {
     running = !running;
 
     if (running) {
-        unlockAudio(); // 🔥 CRITICAL FIX
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
         draw();
     }
 }
 
-// ================= PDF (FIXED) =================
+// ================= PDF EXPORT (FULL FIXED DETAILS) =================
 function exportPDF() {
 
     const { jsPDF } = window.jspdf;
@@ -164,10 +161,42 @@ function exportPDF() {
     let risk = riskIndex(bpm);
     let alarm = alarmState(bpm);
 
-    doc.text("ECG REPORT", 20, 20);
-    doc.text("BPM: " + bpm, 20, 40);
-    doc.text("Risk: " + risk, 20, 50);
-    doc.text("Condition: " + alarm, 20, 60);
+    let now = new Date();
 
-    doc.save("ECG_Report.pdf");
+    // HEADER
+    doc.setFontSize(16);
+    doc.text("HOSPITAL ECG BIOMEDICAL REPORT", 20, 20);
+
+    // PATIENT DETAILS
+    doc.setFontSize(11);
+    doc.text("Patient Name: xxxxxxxxxxxxxxxxx", 20, 40);
+    doc.text("Hospital Name: xxxxxxxxxxxxxxxxx", 20, 50);
+    doc.text("Medical Doctor: xxxxxxxxxxxxxxxxx", 20, 60);
+    doc.text("Biomedical Technician: xxxxxxxxxxxxx", 20, 70);
+
+    doc.text("Department: ICU", 20, 85);
+    doc.text("Bed Number: xxxx", 20, 95);
+
+    // VITALS
+    doc.text("Heart Rate (BPM): " + (bpm || "N/A"), 20, 110);
+    doc.text("Risk Index: " + risk + "/100", 20, 120);
+    doc.text("Condition: " + alarm, 20, 130);
+
+    // ACTION
+    let action =
+        alarm === "NORMAL"
+            ? "Patient stable. Continue monitoring."
+            : alarm === "WARNING"
+            ? "Abnormal signs detected. Increase monitoring."
+            : "CRITICAL CONDITION: Immediate ICU intervention required.";
+
+    doc.text("Immediate Action: " + action, 20, 150);
+
+    // TIME INFO
+    doc.text("Date: " + now.toLocaleDateString(), 20, 170);
+    doc.text("Time: " + now.toLocaleTimeString(), 20, 180);
+
+    doc.text("Generated by ECG Biomedical Analyzer System", 20, 200);
+
+    doc.save("ECG_Patient_Report.pdf");
 }
